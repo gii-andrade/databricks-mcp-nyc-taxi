@@ -65,6 +65,15 @@ async function main() {
         console.log(`[${new Date().toISOString()}] ${req.method} ${url.pathname}`);
 
         if (req.method === 'GET' && url.pathname === '/') {
+          // SSE endpoint (raiz) - Watson Orchestrate espera isso
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          await server.startHttp(res);
+          return;
+        }
+
+        if (req.method === 'GET' && url.pathname === '/health') {
+          // Health check endpoint separado
           res.writeHead(200, { 
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
@@ -75,14 +84,14 @@ async function main() {
             service: 'Databricks MCP NYC Taxi',
             timestamp: new Date().toISOString(),
             endpoints: {
-              health: '/',
-              sse: '/mcp'
+              health: '/health',
+              sse: '/'
             }
           }));
           return;
         }
 
-        if (url.pathname === '/mcp') {
+        if (url.pathname === '/' || url.pathname === '/mcp') {
           if (req.method === 'GET') {
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -104,9 +113,9 @@ async function main() {
 
       httpServer.listen(Number(port), '0.0.0.0', () => {
         console.log(`\n✅ Servidor HTTP MCP pronto na porta ${port}!`);
-        console.log(`   Health check: http://0.0.0.0:${port}/`);
-        console.log(`   Endpoint SSE: http://0.0.0.0:${port}/mcp`);
-        console.log(`   Railway URL: https://databricks-mcp-nyc-taxi-production.up.railway.app/mcp`);
+        console.log(`   Health check: http://0.0.0.0:${port}/health`);
+        console.log(`   SSE endpoint: http://0.0.0.0:${port}/ (raiz)`);
+        console.log(`   Railway URL: https://databricks-mcp-nyc-taxi-production.up.railway.app`);
       });
     } else {
       // Modo stdio (desenvolvimento local)
