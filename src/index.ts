@@ -10,20 +10,20 @@ async function main() {
   console.log('🚕 Servidor MCP - Databricks NYC Taxi Analytics');
   console.log('='.repeat(60));
   
-  // Validar configuração
-  const host = process.env.DATABRICKS_HOST;
+  // Configuração com valores padrão
+  const host = process.env.DATABRICKS_HOST || "https://dbc-c163c494-7b8e.cloud.databricks.com";
   const token = process.env.DATABRICKS_TOKEN;
-  const genieSpaceId = process.env.GENIE_SPACE_ID;
-  const genieSpaceName = process.env.GENIE_SPACE_NAME;
+  const genieSpaceId = process.env.GENIE_SPACE_ID || "01f1382acaba1875bcdaafad34670d36";
+  const genieSpaceName = process.env.GENIE_SPACE_NAME || "NYC Taxi Trips Analytics";
 
   console.log('\n📋 Configuração:');
   console.log(`   Host: ${host}`);
-  console.log(`   Token: ${token ? '***' + token.slice(-4) : 'NÃO CONFIGURADO'}`);
-  console.log(`   Genie Space: ${genieSpaceName || 'N/A'} (${genieSpaceId || 'N/A'})`);
+  console.log(`   Token: ***${token ? token.slice(-4) : 'NÃO CONFIGURADO'}`);
+  console.log(`   Genie Space: ${genieSpaceName} (${genieSpaceId})`);
 
-  if (!host || !token) {
-    console.error('\n❌ ERRO: DATABRICKS_HOST e DATABRICKS_TOKEN são obrigatórios');
-    console.error('   Verifique o arquivo .env');
+  if (!token) {
+    console.error('\n❌ ERRO: DATABRICKS_TOKEN não configurado');
+    console.error('   Configure a variável de ambiente DATABRICKS_TOKEN no arquivo .env');
     process.exit(1);
   }
 
