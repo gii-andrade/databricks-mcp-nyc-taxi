@@ -27,19 +27,19 @@ export class DatabricksClient {
    */
   async queryGenie(question: string, spaceId?: string): Promise<any> {
     const targetSpaceId = spaceId || this.genieSpaceId;
-    
+
     if (!targetSpaceId) {
       throw new Error('Genie Space ID não configurado');
     }
 
     try {
       console.log(`Enviando query para Genie Space ${targetSpaceId}: ${question}`);
-      
+
       // Endpoint para criar uma conversa no Genie
       const response = await this.client.post(`/api/2.0/genie/spaces/${targetSpaceId}/start-conversation`, {
         content: question
       });
-      
+
       console.log('Resposta do Genie:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
@@ -90,7 +90,7 @@ export class DatabricksClient {
         warehouse_id: warehouseId,
         wait_timeout: '30s'
       });
-      
+
       console.log('SQL executado com sucesso');
       return response.data;
     } catch (error: any) {

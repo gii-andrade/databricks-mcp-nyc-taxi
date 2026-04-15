@@ -10,14 +10,13 @@ import { tools } from './tools.js';
 export class DatabricksMCPServer {
   private server: Server;
   private databricksClient: DatabricksClient;
-  private httpTransport?: any;
 
   constructor(databricksClient: DatabricksClient) {
     this.databricksClient = databricksClient;
-    
+
     this.server = new Server(
       {
-        name: 'databricks_genie_nyc_taxi',
+        name: 'databricks-genie-nyc-taxi',
         version: '1.0.0',
       },
       {
@@ -47,16 +46,16 @@ export class DatabricksMCPServer {
         switch (name) {
           case 'query_nyc_taxi':
             return await this.handleQueryNYCTaxi(args);
-          
+
           case 'list_genie_spaces':
             return await this.handleListGenieSpaces();
-          
+
           case 'get_conversation':
             return await this.handleGetConversation(args);
-          
+
           case 'test_connection':
             return await this.handleTestConnection();
-          
+
           default:
             throw new Error(`Tool desconhecido: ${name}`);
         }
@@ -77,14 +76,14 @@ export class DatabricksMCPServer {
 
   private async handleQueryNYCTaxi(args: any) {
     const { question } = args;
-    
+
     if (!question) {
       throw new Error('Parâmetro "question" é obrigatório');
     }
 
     console.log(`Consultando Genie sobre NYC Taxi: "${question}"`);
     const result = await this.databricksClient.queryGenie(question);
-    
+
     return {
       content: [
         {
@@ -98,11 +97,11 @@ export class DatabricksMCPServer {
   private async handleListGenieSpaces() {
     console.log('Listando Genie Spaces...');
     const spaces = await this.databricksClient.listGenieSpaces();
-    
-    const spacesList = spaces.map((space: any) => 
+
+    const spacesList = spaces.map((space: any) =>
       `- ${space.name || 'Sem nome'} (ID: ${space.space_id || space.id})`
     ).join('\n');
-    
+
     return {
       content: [
         {
@@ -115,14 +114,14 @@ export class DatabricksMCPServer {
 
   private async handleGetConversation(args: any) {
     const { space_id, conversation_id } = args;
-    
+
     if (!space_id || !conversation_id) {
       throw new Error('Parâmetros "space_id" e "conversation_id" são obrigatórios');
     }
 
     console.log(`Obtendo conversa ${conversation_id} do space ${space_id}`);
     const conversation = await this.databricksClient.getConversation(space_id, conversation_id);
-    
+
     return {
       content: [
         {
@@ -136,13 +135,13 @@ export class DatabricksMCPServer {
   private async handleTestConnection() {
     console.log('Testando conexão com Databricks...');
     const isConnected = await this.databricksClient.testConnection();
-    
+
     return {
       content: [
         {
           type: 'text',
-          text: isConnected 
-            ? '✅ Conexão com Databricks OK! Credenciais válidas.' 
+          text: isConnected
+            ? '✅ Conexão com Databricks OK! Credenciais válidas.'
             : '❌ Falha na conexão com Databricks. Verifique as credenciais.',
         },
       ],
@@ -153,77 +152,6 @@ export class DatabricksMCPServer {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.log('🚀 Servidor MCP Databricks NYC Taxi iniciado e pronto para receber requisições');
-  }
-
-  async startHttp(res: any) {
-    if (this.httpTransport) {
-      throw new Error('HTTP transport already initialized');
-    }
-
-    // Simple transport implementation
-    const transport = {
-      start: async () => {},
-      send: async (message: any) => {
-        try {
-          if (res && !res.destroyed) {
-            res.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
-          }
-        } catch (error) {
-          console.error('Error sending message:', error);
-        }
-      },
-      close: async () => {},
-      onmessage: null as any,
-      onclose: null as any,
-      onerror: null as any
-    };
-
-    this.httpTransport = transport;
-
-    transport.onclose = () => {
-      console.log('HTTP/SSE connection closed');
-      this.httpTransport = undefined;
-    };
-
-    transport.onerror = (error: any) => {
-      console.error('HTTP/SSE transport error:', error);
-    };
-
-    try {
-      await this.server.connect(transport);
-      console.log('🚀 Servidor MCP Databricks NYC Taxi (HTTP/SSE) iniciado');
-    } catch (error) {
-      console.error('Error connecting transport:', error);
-      throw error;
-    }
-  }
-
-  async handlePostMessage(req: any, res: any) {
-    if (!this.httpTransport) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('No active MCP session');
-      return;
-    }
-
-    let body = '';
-    req.on('data', (chunk: any) => body += chunk);
-    req.on('end', async () => {
-      try {
-        const message = JSON.parse(body);
-        console.log('Received MCP message:', message.method || 'unknown');
-
-        if (this.httpTransport && this.httpTransport.onmessage) {
-          this.httpTransport.onmessage(message);
-        }
-
-        res.writeHead(202, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'accepted' }));
-      } catch (error: any) {
-        console.error('Error processing message:', error.message);
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid request' }));
-      }
-    });
   }
 }
 

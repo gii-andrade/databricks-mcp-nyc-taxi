@@ -1,37 +1,22 @@
 import dotenv from 'dotenv';
-import { createServer } from 'node:http';
 import { DatabricksClient } from './databricks.js';
 import { DatabricksMCPServer } from './server.js';
 
-// Carregar variáveis de ambiente
-dotenv.config();
+// SOLUÇÃO DEFINITIVA - Valores diretos para Railway
+const host = "https://dbc-c163c494-7b8e.cloud.databricks.com";
+const token = "dapie52433d3a451c248f68be3366cc848cb";
+const genieSpaceId = "01f1382acaba1875bcdaafad34670d36";
+const genieSpaceName = "NYC Taxi Trips Analytics";
 
 async function main() {
   console.log('='.repeat(60));
   console.log('🚕 Servidor MCP - Databricks NYC Taxi Analytics');
   console.log('='.repeat(60));
-  
-  // Configuração com valores padrão
-  const host = process.env.DATABRICKS_HOST || "https://dbc-c163c494-7b8e.cloud.databricks.com";
-  const token = process.env.DATABRICKS_TOKEN;
-  const genieSpaceId = process.env.GENIE_SPACE_ID || "01f1382acaba1875bcdaafad34670d36";
-  const genieSpaceName = process.env.GENIE_SPACE_NAME || "NYC Taxi Trips Analytics";
 
   console.log('\n📋 Configuração:');
   console.log(`   Host: ${host}`);
-  console.log(`   Token: ***${token ? token.slice(-4) : 'NÃO CONFIGURADO'}`);
+  console.log(`   Token: ***${token.slice(-4)}`);
   console.log(`   Genie Space: ${genieSpaceName} (${genieSpaceId})`);
-
-  if (!token) {
-    console.error('\n❌ ERRO: DATABRICKS_TOKEN não configurado');
-    console.error('   Configure a variável de ambiente DATABRICKS_TOKEN no arquivo .env');
-    process.exit(1);
-  }
-
-  if (!genieSpaceId) {
-    console.warn('\n⚠️  AVISO: GENIE_SPACE_ID não configurado');
-    console.warn('   Você precisará especificar o space_id em cada query');
-  }
 
   try {
     // Criar cliente Databricks
@@ -46,102 +31,17 @@ async function main() {
     const isConnected = await databricksClient.testConnection();
     if (!isConnected) {
       console.error('\n❌ Falha ao conectar com Databricks');
-      console.error('   Verifique suas credenciais no arquivo .env');
       process.exit(1);
     }
 
     // Criar e iniciar servidor MCP
     console.log('\n🚀 Iniciando servidor MCP...');
     const server = new DatabricksMCPServer(databricksClient);
+    await server.start();
 
-    // Verificar se deve usar HTTP (para Railway/deploy)
-    const port = process.env.PORT || '8080';
-    console.log(`   Porta detectada: ${port}`);
-    if (port) {
-      console.log(`   Modo HTTP ativado na porta ${port}`);
-      
-      const httpServer = createServer(async (req, res) => {
-        const url = new URL(req.url || '/', `http://localhost`);
-        console.log(`[${new Date().toISOString()}] ${req.method} ${url.pathname}`);
+    console.log('\n✅ Servidor pronto para receber requisições!');
+    console.log('   Aguardando comandos via stdio...\n');
 
-        if (req.method === 'GET' && url.pathname === '/') {
-          // SSE endpoint (raiz) - Watson Orchestrate espera isso
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-          await server.startHttp(res);
-          return;
-        }
-
-        if (req.method === 'GET' && url.pathname === '/health') {
-          // Health check endpoint separado
-          res.writeHead(200, { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          });
-          res.end(JSON.stringify({ 
-            status: 'ok', 
-            service: 'Databricks MCP NYC Taxi',
-            timestamp: new Date().toISOString(),
-            endpoints: {
-              health: '/health',
-              sse: '/'
-            }
-          }));
-          return;
-        }
-
-        if (url.pathname === '/' || url.pathname === '/mcp') {
-          if (req.method === 'GET') {
-            // Simple SSE connection for Watson Orchestrate
-            res.writeHead(200, {
-              'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
-              'Connection': 'keep-alive',
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Headers': 'Content-Type',
-            });
-            
-            // Keep connection alive with ping
-            const pingInterval = setInterval(() => {
-              res.write(': ping\n\n');
-            }, 30000);
-            
-            req.on('close', () => {
-              clearInterval(pingInterval);
-              console.log('SSE connection closed');
-            });
-            
-            // Initialize MCP server for this connection
-            await server.startHttp(res);
-            return;
-          }
-
-          if (req.method === 'POST') {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-            await server.handlePostMessage(req, res);
-            return;
-          }
-        }
-
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Not Found');
-      });
-
-      httpServer.listen(Number(port), '0.0.0.0', () => {
-        console.log(`\n✅ Servidor HTTP MCP pronto na porta ${port}!`);
-        console.log(`   Health check: http://0.0.0.0:${port}/health`);
-        console.log(`   SSE endpoint: http://0.0.0.0:${port}/ (raiz)`);
-        console.log(`   Railway URL: https://databricks-mcp-nyc-taxi-production.up.railway.app`);
-      });
-    } else {
-      // Modo stdio (desenvolvimento local)
-      await server.start();
-      console.log('\n✅ Servidor pronto para receber requisições!');
-      console.log('   Aguardando comandos via stdio...\n');
-    }
-    
   } catch (error: any) {
     console.error('\n❌ Erro ao iniciar servidor:', error.message);
     console.error('   Stack:', error.stack);
