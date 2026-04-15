@@ -93,8 +93,26 @@ async function main() {
 
         if (url.pathname === '/' || url.pathname === '/mcp') {
           if (req.method === 'GET') {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+            // Simple SSE connection for Watson Orchestrate
+            res.writeHead(200, {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Headers': 'Content-Type',
+            });
+            
+            // Keep connection alive with ping
+            const pingInterval = setInterval(() => {
+              res.write(': ping\n\n');
+            }, 30000);
+            
+            req.on('close', () => {
+              clearInterval(pingInterval);
+              console.log('SSE connection closed');
+            });
+            
+            // Initialize MCP server for this connection
             await server.startHttp(res);
             return;
           }

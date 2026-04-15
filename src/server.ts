@@ -1,6 +1,5 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -11,7 +10,7 @@ import { tools } from './tools.js';
 export class DatabricksMCPServer {
   private server: Server;
   private databricksClient: DatabricksClient;
-  private httpTransport?: SSEServerTransport;
+  private httpTransport?: any;
 
   constructor(databricksClient: DatabricksClient) {
     this.databricksClient = databricksClient;
@@ -161,7 +160,24 @@ export class DatabricksMCPServer {
       throw new Error('HTTP transport already initialized');
     }
 
-    const transport = new SSEServerTransport('/mcp', res);
+    // Create a simple transport that doesn't send automatic endpoint events
+    const transport = {
+      start: async () => {
+        // No-op for simple transport
+      },
+      send: async (message: any) => {
+        if (res && !res.destroyed) {
+          res.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
+        }
+      },
+      close: async () => {
+        // Cleanup if needed
+      },
+      onmessage: null as any,
+      onclose: null as any,
+      onerror: null as any
+    };
+
     this.httpTransport = transport;
 
     transport.onclose = () => {
@@ -169,7 +185,7 @@ export class DatabricksMCPServer {
       this.httpTransport = undefined;
     };
 
-    transport.onerror = (error) => {
+    transport.onerror = (error: any) => {
       console.error('HTTP/SSE transport error:', error);
     };
 
@@ -184,7 +200,27 @@ export class DatabricksMCPServer {
       return;
     }
 
-    await this.httpTransport.handlePostMessage(req, res);
+    // Simple POST message handling
+    let body = '';
+    req.on('data', (chunk: any) => body += chunk);
+    req.on('end', async () => {
+      try {
+        const message = JSON.parse(body);
+        console.log('Received MCP message:', message);
+        
+        // Handle the message through the transport
+        if (this.httpTransport && this.httpTransport.onmessage) {
+          this.httpTransport.onmessage(message);
+        }
+        
+        res.writeHead(202, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'accepted' }));
+      } catch (error) {
+        console.error('Error parsing message:', error);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    });
   }
 }
 
