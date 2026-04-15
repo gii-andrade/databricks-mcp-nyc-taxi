@@ -160,19 +160,19 @@ export class DatabricksMCPServer {
       throw new Error('HTTP transport already initialized');
     }
 
-    // Create a simple transport that doesn't send automatic endpoint events
+    // Simple transport implementation
     const transport = {
-      start: async () => {
-        // No-op for simple transport
-      },
+      start: async () => {},
       send: async (message: any) => {
-        if (res && !res.destroyed) {
-          res.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
+        try {
+          if (res && !res.destroyed) {
+            res.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
+          }
+        } catch (error) {
+          console.error('Error sending message:', error);
         }
       },
-      close: async () => {
-        // Cleanup if needed
-      },
+      close: async () => {},
       onmessage: null as any,
       onclose: null as any,
       onerror: null as any
@@ -189,8 +189,13 @@ export class DatabricksMCPServer {
       console.error('HTTP/SSE transport error:', error);
     };
 
-    await this.server.connect(transport);
-    console.log('🚀 Servidor MCP Databricks NYC Taxi (HTTP/SSE) iniciado');
+    try {
+      await this.server.connect(transport);
+      console.log('🚀 Servidor MCP Databricks NYC Taxi (HTTP/SSE) iniciado');
+    } catch (error) {
+      console.error('Error connecting transport:', error);
+      throw error;
+    }
   }
 
   async handlePostMessage(req: any, res: any) {
@@ -200,25 +205,23 @@ export class DatabricksMCPServer {
       return;
     }
 
-    // Simple POST message handling
     let body = '';
     req.on('data', (chunk: any) => body += chunk);
     req.on('end', async () => {
       try {
         const message = JSON.parse(body);
-        console.log('Received MCP message:', message);
-        
-        // Handle the message through the transport
+        console.log('Received MCP message:', message.method || 'unknown');
+
         if (this.httpTransport && this.httpTransport.onmessage) {
           this.httpTransport.onmessage(message);
         }
-        
+
         res.writeHead(202, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'accepted' }));
-      } catch (error) {
-        console.error('Error parsing message:', error);
+      } catch (error: any) {
+        console.error('Error processing message:', error.message);
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        res.end(JSON.stringify({ error: 'Invalid request' }));
       }
     });
   }
