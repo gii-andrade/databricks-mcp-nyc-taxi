@@ -1,5 +1,6 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -152,6 +153,12 @@ export class DatabricksMCPServer {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.log('🚀 Servidor MCP Databricks NYC Taxi iniciado e pronto para receber requisições');
+  }
+
+  async startHttp(res: any) {
+    const transport = new SSEServerTransport('/mcp', res);
+    await this.server.connect(transport);
+    console.log('🚀 Servidor MCP Databricks NYC Taxi (HTTP/SSE) iniciado');
   }
 }
 

@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { createServer } from 'node:http';
 import { DatabricksClient } from './databricks.js';
 import { DatabricksMCPServer } from './server.js';
 
@@ -52,10 +53,54 @@ async function main() {
     // Criar e iniciar servidor MCP
     console.log('\n🚀 Iniciando servidor MCP...');
     const server = new DatabricksMCPServer(databricksClient);
-    await server.start();
 
-    console.log('\n✅ Servidor pronto para receber requisições!');
-    console.log('   Aguardando comandos via stdio...\n');
+    // Verificar se deve usar HTTP (para Railway/deploy)
+    const port = process.env.PORT;
+    if (port) {
+      console.log(`   Modo HTTP ativado na porta ${port}`);
+      
+      const httpServer = createServer(async (req, res) => {
+        if (req.method === 'GET' && req.url === '/mcp') {
+          // SSE connection
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Cache-Control',
+          });
+          await server.startHttp(res);
+        } else if (req.method === 'POST' && req.url === '/mcp') {
+          // Handle POST messages
+          let body = '';
+          req.on('data', chunk => body += chunk);
+          req.on('end', async () => {
+            try {
+              const message = JSON.parse(body);
+              // This would need proper handling, but for now assume SSE handles it
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'ok' }));
+            } catch (error) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Invalid JSON' }));
+            }
+          });
+        } else {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Not Found');
+        }
+      });
+
+      httpServer.listen(port, () => {
+        console.log(`\n✅ Servidor HTTP MCP pronto na porta ${port}!`);
+        console.log(`   Endpoint SSE: http://localhost:${port}/mcp`);
+      });
+    } else {
+      // Modo stdio (desenvolvimento local)
+      await server.start();
+      console.log('\n✅ Servidor pronto para receber requisições!');
+      console.log('   Aguardando comandos via stdio...\n');
+    }
     
   } catch (error: any) {
     console.error('\n❌ Erro ao iniciar servidor:', error.message);

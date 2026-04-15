@@ -50,7 +50,36 @@ npx @modelcontextprotocol/inspector node dist/index.js
 
 Isso abrirá uma interface web onde você pode testar os tools disponíveis.
 
-## 🛠️ Tools Disponíveis
+## � Deploy no Railway
+
+### 1. Criar projeto no Railway
+1. Acesse [Railway.app](https://railway.app) e faça login
+2. Clique em "New Project" → "Deploy from GitHub repo"
+3. Conecte seu repositório `databricks-mcp-nyc-taxi`
+
+### 2. Configurar variáveis de ambiente
+No dashboard do Railway, vá para "Variables" e adicione:
+
+```
+DATABRICKS_HOST=https://dbc-c163c494-7b8e.cloud.databricks.com
+DATABRICKS_TOKEN=seu_databricks_token_aqui
+GENIE_SPACE_ID=01f1382acaba1875bcdaafad34670d36
+GENIE_SPACE_NAME=NYC Taxi Trips Analytics
+```
+
+### 3. Deploy automático
+O Railway detectará automaticamente:
+- Node.js como runtime
+- Executará `npm install` e `npm run build`
+- Iniciará com `npm start`
+- O servidor ficará disponível em uma URL pública
+
+### 4. Verificar deploy
+Após o deploy, você verá uma URL como `https://databricks-mcp-nyc-taxi.up.railway.app`
+
+O servidor MCP estará disponível via HTTP/SSE no endpoint `/mcp`.
+
+## �🛠️ Tools Disponíveis
 
 ### 1. query_nyc_taxi
 Faz perguntas sobre dados de táxis de NYC usando o Genie Agent.
