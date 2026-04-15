@@ -11,13 +11,14 @@ import { tools } from './tools.js';
 export class DatabricksMCPServer {
   private server: Server;
   private databricksClient: DatabricksClient;
+  private httpTransport?: SSEServerTransport;
 
   constructor(databricksClient: DatabricksClient) {
     this.databricksClient = databricksClient;
     
     this.server = new Server(
       {
-        name: 'databricks-genie-nyc-taxi',
+        name: 'databricks_genie_nyc_taxi',
         version: '1.0.0',
       },
       {
@@ -156,9 +157,34 @@ export class DatabricksMCPServer {
   }
 
   async startHttp(res: any) {
+    if (this.httpTransport) {
+      throw new Error('HTTP transport already initialized');
+    }
+
     const transport = new SSEServerTransport('/mcp', res);
+    this.httpTransport = transport;
+
+    transport.onclose = () => {
+      console.log('HTTP/SSE connection closed');
+      this.httpTransport = undefined;
+    };
+
+    transport.onerror = (error) => {
+      console.error('HTTP/SSE transport error:', error);
+    };
+
     await this.server.connect(transport);
     console.log('🚀 Servidor MCP Databricks NYC Taxi (HTTP/SSE) iniciado');
+  }
+
+  async handlePostMessage(req: any, res: any) {
+    if (!this.httpTransport) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('No active MCP session');
+      return;
+    }
+
+    await this.httpTransport.handlePostMessage(req, res);
   }
 }
 

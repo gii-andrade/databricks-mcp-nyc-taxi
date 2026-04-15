@@ -60,39 +60,38 @@ async function main() {
       console.log(`   Modo HTTP ativado na porta ${port}`);
       
       const httpServer = createServer(async (req, res) => {
-        if (req.method === 'GET' && req.url === '/mcp') {
-          // SSE connection
-          res.writeHead(200, {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Cache-Control',
-          });
-          await server.startHttp(res);
-        } else if (req.method === 'POST' && req.url === '/mcp') {
-          // Handle POST messages
-          let body = '';
-          req.on('data', chunk => body += chunk);
-          req.on('end', async () => {
-            try {
-              const message = JSON.parse(body);
-              // This would need proper handling, but for now assume SSE handles it
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ status: 'ok' }));
-            } catch (error) {
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Invalid JSON' }));
-            }
-          });
-        } else {
-          res.writeHead(404, { 'Content-Type': 'text/plain' });
-          res.end('Not Found');
+        const url = new URL(req.url || '/', `http://localhost`);
+        console.log(`[${new Date().toISOString()}] ${req.method} ${url.pathname}`);
+
+        if (req.method === 'GET' && url.pathname === '/') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            status: 'ok', 
+            service: 'Databricks MCP NYC Taxi',
+            timestamp: new Date().toISOString()
+          }));
+          return;
         }
+
+        if (url.pathname === '/mcp') {
+          if (req.method === 'GET') {
+            await server.startHttp(res);
+            return;
+          }
+
+          if (req.method === 'POST') {
+            await server.handlePostMessage(req, res);
+            return;
+          }
+        }
+
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
       });
 
-      httpServer.listen(port, () => {
+      httpServer.listen(Number(port), '0.0.0.0', () => {
         console.log(`\n✅ Servidor HTTP MCP pronto na porta ${port}!`);
+        console.log(`   Health check: http://localhost:${port}/`);
         console.log(`   Endpoint SSE: http://localhost:${port}/mcp`);
       });
     } else {
