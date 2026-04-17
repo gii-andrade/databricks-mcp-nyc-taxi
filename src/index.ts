@@ -89,13 +89,19 @@ async function main() {
     });
 
     // Iniciar servidor HTTP
-    app.listen(port, '0.0.0.0', () => {
+    const server = app.listen(port, '0.0.0.0', () => {
       console.log('\n🚀 Servidor HTTP iniciado!');
-      console.log(`   URL local: http://localhost:${port}`);
-      console.log(`   Endpoint SSE: http://localhost:${port}/sse`);
-      console.log(`   Endpoint Message: http://localhost:${port}/message`);
+      console.log(`   Porta: ${port}`);
+      console.log(`   Host: 0.0.0.0 (todas as interfaces)`);
+      console.log(`   Endpoint SSE: /`);
+      console.log(`   Endpoint Health: /health`);
+      console.log(`   Endpoint Message: /message`);
       console.log('\n✅ Servidor pronto para receber conexões do Orchestrate!\n');
     });
+
+    // Configurar timeout para conexões
+    server.timeout = 0; // Sem timeout para SSE
+    server.keepAliveTimeout = 0;
 
   } catch (error: any) {
     console.error('\n❌ Erro ao iniciar servidor:', error.message);
