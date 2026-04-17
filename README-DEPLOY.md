@@ -147,11 +147,13 @@ No Railway, vá em **Variables** e adicione:
 
 ```
 DATABRICKS_HOST=https://dbc-c163c494-7b8e.cloud.databricks.com
-DATABRICKS_TOKEN=dapie52433d3a451c248f68be3366cc848cb
+DATABRICKS_TOKEN=seu_token_databricks_aqui
 GENIE_SPACE_ID=01f1382acaba1875bcdaafad34670d36
 GENIE_SPACE_NAME=NYC Taxi Trips Analytics
 PORT=3000
 ```
+
+**IMPORTANTE:** Substitua `seu_token_databricks_aqui` pelo seu token real do Databricks.
 
 #### 5.3. Aguardar Deploy
 

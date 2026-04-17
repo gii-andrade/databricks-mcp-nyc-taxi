@@ -8,11 +8,18 @@ import { DatabricksMCPServer } from './server.js';
 dotenv.config();
 
 // Configuração
-const host = process.env.DATABRICKS_HOST || "https://dbc-c163c494-7b8e.cloud.databricks.com";
-const token = process.env.DATABRICKS_TOKEN || "dapie52433d3a451c248f68be3366cc848cb";
-const genieSpaceId = process.env.GENIE_SPACE_ID || "01f1382acaba1875bcdaafad34670d36";
+const host = process.env.DATABRICKS_HOST;
+const token = process.env.DATABRICKS_TOKEN;
+const genieSpaceId = process.env.GENIE_SPACE_ID;
 const genieSpaceName = process.env.GENIE_SPACE_NAME || "NYC Taxi Trips Analytics";
 const port = parseInt(process.env.PORT || '3000');
+
+// Validar variáveis obrigatórias
+if (!host || !token || !genieSpaceId) {
+  console.error('❌ ERRO: Variáveis de ambiente obrigatórias não configuradas!');
+  console.error('   Configure: DATABRICKS_HOST, DATABRICKS_TOKEN, GENIE_SPACE_ID');
+  process.exit(1);
+}
 
 async function main() {
   console.log('='.repeat(60));
@@ -21,7 +28,7 @@ async function main() {
 
   console.log('\n📋 Configuração:');
   console.log(`   Host: ${host}`);
-  console.log(`   Token: ***${token.slice(-5)}`);
+  console.log(`   Token: ***${token!.slice(-5)}`);
   console.log(`   Genie Space: ${genieSpaceName} (${genieSpaceId})`);
   console.log(`   Porta: ${port}`);
 
@@ -29,9 +36,9 @@ async function main() {
     // Criar cliente Databricks
     console.log('\n🔌 Conectando ao Databricks...');
     const databricksClient = new DatabricksClient({
-      host,
-      token,
-      genieSpaceId,
+      host: host!,
+      token: token!,
+      genieSpaceId: genieSpaceId!,
     });
 
     // Testar conexão
