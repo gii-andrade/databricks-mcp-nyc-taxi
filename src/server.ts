@@ -1,11 +1,12 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { DatabricksClient } from './databricks.js';
 import { tools } from './tools.js';
+import type { Request, Response } from 'express';
 
 export class DatabricksMCPServer {
   private server: Server;
@@ -148,10 +149,23 @@ export class DatabricksMCPServer {
     };
   }
 
-  async start() {
-    const transport = new StdioServerTransport();
+  getServer() {
+    return this.server;
+  }
+
+  async handleSSEConnection(req: Request, res: Response) {
+    console.log('📡 Nova conexão SSE recebida');
+    
+    const transport = new SSEServerTransport('/message', res);
     await this.server.connect(transport);
-    console.log('🚀 Servidor MCP Databricks NYC Taxi iniciado e pronto para receber requisições');
+    
+    console.log('✅ Cliente conectado via SSE');
+  }
+
+  async handleMessage(req: Request, res: Response) {
+    console.log('📨 Mensagem recebida via POST');
+    // O SSEServerTransport lida com as mensagens automaticamente
+    res.status(200).send();
   }
 }
 

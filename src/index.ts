@@ -1,22 +1,29 @@
 import dotenv from 'dotenv';
+import express from 'express';
+import cors from 'cors';
 import { DatabricksClient } from './databricks.js';
 import { DatabricksMCPServer } from './server.js';
 
-// SOLUÇÃO DEFINITIVA - Valores diretos para Railway
-const host = "https://dbc-c163c494-7b8e.cloud.databricks.com";
-const token = "dapie52433d3a451c248f68be3366cc848cb";
-const genieSpaceId = "01f1382acaba1875bcdaafad34670d36";
-const genieSpaceName = "NYC Taxi Trips Analytics";
+// Carregar variáveis de ambiente
+dotenv.config();
+
+// Configuração
+const host = process.env.DATABRICKS_HOST || "https://dbc-c163c494-7b8e.cloud.databricks.com";
+const token = process.env.DATABRICKS_TOKEN || "dapie52433d3a451c248f68be3366cc848cb";
+const genieSpaceId = process.env.GENIE_SPACE_ID || "01f1382acaba1875bcdaafad34670d36";
+const genieSpaceName = process.env.GENIE_SPACE_NAME || "NYC Taxi Trips Analytics";
+const port = parseInt(process.env.PORT || '3000');
 
 async function main() {
   console.log('='.repeat(60));
-  console.log('🚕 Servidor MCP - Databricks NYC Taxi Analytics');
+  console.log('🚕 Servidor MCP HTTP - Databricks NYC Taxi Analytics');
   console.log('='.repeat(60));
 
   console.log('\n📋 Configuração:');
   console.log(`   Host: ${host}`);
-  console.log(`   Token: ***${token.slice(-4)}`);
+  console.log(`   Token: ***${token.slice(-5)}`);
   console.log(`   Genie Space: ${genieSpaceName} (${genieSpaceId})`);
+  console.log(`   Porta: ${port}`);
 
   try {
     // Criar cliente Databricks
@@ -33,14 +40,58 @@ async function main() {
       console.error('\n❌ Falha ao conectar com Databricks');
       process.exit(1);
     }
+    console.log('✅ Conexão com Databricks estabelecida!');
 
-    // Criar e iniciar servidor MCP
-    console.log('\n🚀 Iniciando servidor MCP...');
-    const server = new DatabricksMCPServer(databricksClient);
-    await server.start();
+    // Criar servidor MCP
+    const mcpServer = new DatabricksMCPServer(databricksClient);
 
-    console.log('\n✅ Servidor pronto para receber requisições!');
-    console.log('   Aguardando comandos via stdio...\n');
+    // Criar servidor Express
+    const app = express();
+    
+    // Middlewares
+    app.use(cors());
+    app.use(express.json());
+
+    // Rota de health check
+    app.get('/', (req, res) => {
+      res.json({
+        status: 'ok',
+        service: 'Databricks MCP Server',
+        version: '1.0.0',
+        genie_space: genieSpaceName,
+        endpoints: {
+          sse: '/sse',
+          message: '/message',
+          health: '/'
+        }
+      });
+    });
+
+    // Rota de health check alternativa
+    app.get('/health', (req, res) => {
+      res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+    });
+
+    // Endpoint SSE para conexão MCP
+    app.get('/sse', async (req, res) => {
+      console.log('📡 Nova conexão SSE recebida de:', req.ip);
+      await mcpServer.handleSSEConnection(req, res);
+    });
+
+    // Endpoint para receber mensagens MCP
+    app.post('/message', async (req, res) => {
+      console.log('📨 Mensagem MCP recebida');
+      await mcpServer.handleMessage(req, res);
+    });
+
+    // Iniciar servidor HTTP
+    app.listen(port, '0.0.0.0', () => {
+      console.log('\n🚀 Servidor HTTP iniciado!');
+      console.log(`   URL local: http://localhost:${port}`);
+      console.log(`   Endpoint SSE: http://localhost:${port}/sse`);
+      console.log(`   Endpoint Message: http://localhost:${port}/message`);
+      console.log('\n✅ Servidor pronto para receber conexões do Orchestrate!\n');
+    });
 
   } catch (error: any) {
     console.error('\n❌ Erro ao iniciar servidor:', error.message);
@@ -58,6 +109,17 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('\n❌ Promise rejeitada não tratada:', reason);
   process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('\n👋 Recebido SIGTERM, encerrando servidor...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('\n👋 Recebido SIGINT, encerrando servidor...');
+  process.exit(0);
 });
 
 // Iniciar aplicação
