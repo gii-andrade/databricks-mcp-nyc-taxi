@@ -60,28 +60,25 @@ async function main() {
     app.use(express.json());
 
     // Rota de health check
-    app.get('/', (req, res) => {
+    app.get('/health', (req, res) => {
       res.json({
-        status: 'ok',
+        status: 'healthy',
         service: 'Databricks MCP Server',
         version: '1.0.0',
-        genie_space: genieSpaceName,
-        endpoints: {
-          sse: '/sse',
-          message: '/message',
-          health: '/'
-        }
+        timestamp: new Date().toISOString()
       });
     });
 
-    // Rota de health check alternativa
-    app.get('/health', (req, res) => {
-      res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+    // Endpoint SSE para conexão MCP - URL RAIZ
+    // O Orchestrate espera que a URL base seja o endpoint SSE
+    app.get('/', async (req, res) => {
+      console.log('📡 Nova conexão SSE recebida de:', req.ip);
+      await mcpServer.handleSSEConnection(req, res);
     });
 
-    // Endpoint SSE para conexão MCP
+    // Endpoint SSE alternativo (para compatibilidade)
     app.get('/sse', async (req, res) => {
-      console.log('📡 Nova conexão SSE recebida de:', req.ip);
+      console.log('📡 Nova conexão SSE recebida de:', req.ip, '(via /sse)');
       await mcpServer.handleSSEConnection(req, res);
     });
 
