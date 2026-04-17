@@ -154,8 +154,15 @@ export class DatabricksMCPServer {
   }
 
   async handleSSEConnection(req: Request, res: Response) {
-    console.log('📡 Nova conexão SSE recebida');
+    console.log('📡 Nova conexão SSE recebida de:', req.ip);
     
+    // Configurar headers SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
+    // Criar transport SSE
     const transport = new SSEServerTransport('/message', res);
     await this.server.connect(transport);
     
